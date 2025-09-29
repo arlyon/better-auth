@@ -2,6 +2,7 @@ import type { DBFieldAttribute } from "@better-auth/core/db";
 import type { User, Session, AuthContext } from "../../types";
 import type { AccessControl, Role } from "../access";
 import type {
+	InferOrganization,
 	Invitation,
 	Member,
 	Organization,
@@ -804,18 +805,18 @@ export interface OrganizationOptions {
 		 * This can be set to dynamically change the list of
 		 * organizations the user can access.
 		 */
-		afterOrganizationsList?: (data: {
-			organizations: Organization[];
+		afterOrganizationsList?: <O extends OrganizationOptions>(data: {
+			organizations: InferOrganization<O>[];
 			user: User & Record<string, any>;
-		}) => Promise<Organization[]>;
+		}) => Promise<InferOrganization<O>[]>;
 
 		/**
 		 * A callback to hook into the membership / role check for a given user id.
 		 */
-		afterMemberCheck?: (data: {
+		afterMemberCheck?: <O extends OrganizationOptions>(data: {
 			user: User & Record<string, any>;
-			organization: Organization & Record<string, any>;
-			member: (Member & Record<string, any>) | null;
+			organization: InferOrganization<O> & Record<string, any>;
+			member: (Member & {user: MemberUser}) | null;
 		}) => Promise<(Member & { user: MemberUser }) | null>;
 	};
 }

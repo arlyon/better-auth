@@ -133,7 +133,13 @@ export const createOrganization = <O extends OrganizationOptions>(
 			}
 			const adapter = getOrgAdapter<O>(ctx.context, options as O);
 
-			const userOrganizations = await adapter.listOrganizations(user.id);
+			let userOrganizations = await adapter.listOrganizations(user.id);
+			userOrganizations =
+				(await options.organizationHooks?.afterOrganizationsList?.({
+					organizations: userOrganizations,
+					user: user,
+				})) ?? userOrganizations;
+
 			const hasReachedOrgLimit =
 				typeof options.organizationLimit === "number"
 					? userOrganizations.length >= options.organizationLimit
@@ -903,9 +909,23 @@ export const listOrganizations = <O extends OrganizationOptions>(options: O) =>
 		},
 		async (ctx) => {
 			const adapter = getOrgAdapter<O>(ctx.context, options);
-			const organizations = await adapter.listOrganizations(
+			let organizations = await adapter.listOrganizations(
 				ctx.context.session.user.id,
 			);
+
+			if (options.organizationHooks?.afterOrganizationsList) {
+				const user = await ctx.context.internalAdapter.findUserById(
+					ctx.context.session.user.id,
+				);
+				if (user) {
+					organizations =
+						await options.organizationHooks.afterOrganizationsList({
+							organizations: organizations,
+							user: user,
+						});
+				}
+			}
+
 			return ctx.json(organizations);
 		},
 	);

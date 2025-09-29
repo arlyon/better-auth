@@ -7,7 +7,6 @@ import type { AuthContext } from "../../init";
 import type { BetterAuthPlugin } from "../../types/plugins";
 import { shimContext } from "../../utils/shim";
 import { type AccessControl } from "../access";
-import { getOrgAdapter } from "./adapter";
 import { orgSessionMiddleware } from "./call";
 import {
 	acceptInvitation,
@@ -51,7 +50,6 @@ import type {
 	InferInvitation,
 	InferMember,
 	InferOrganization,
-	Member,
 	Team,
 	TeamMember,
 } from "./schema";
