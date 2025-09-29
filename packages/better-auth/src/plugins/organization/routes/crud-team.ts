@@ -14,6 +14,7 @@ import {
 	type InferAdditionalFieldsFromPluginOptions,
 } from "../../../db";
 import type { PrettifyDeep } from "../../../types/helper";
+import { hasMember } from "../has-member";
 
 export const createTeam = <O extends OrganizationOptions>(options: O) => {
 	const additionalFieldsSchema = toZodSchema({
@@ -108,12 +109,13 @@ export const createTeam = <O extends OrganizationOptions>(options: O) => {
 					message: ORGANIZATION_ERROR_CODES.NO_ACTIVE_ORGANIZATION,
 				});
 			}
-			const adapter = getOrgAdapter<O>(ctx.context, options as O);
 			if (session) {
-				const member = await adapter.findMemberByOrgId({
-					userId: session.user.id,
+				const member = await hasMember(
+					ctx.context,
+					options,
 					organizationId,
-				});
+					session.user.id,
+				);
 				if (!member) {
 					throw new APIError("FORBIDDEN", {
 						message:
@@ -140,6 +142,7 @@ export const createTeam = <O extends OrganizationOptions>(options: O) => {
 				}
 			}
 
+			const adapter = getOrgAdapter<O>(ctx.context, options as O);
 			const existingTeams = await adapter.listTeams(organizationId);
 			const maximum =
 				typeof ctx.context.orgOptions.teams?.maximumTeams === "function"
@@ -270,12 +273,13 @@ export const removeTeam = <O extends OrganizationOptions>(options: O) =>
 			if (!session && (ctx.request || ctx.headers)) {
 				throw new APIError("UNAUTHORIZED");
 			}
-			const adapter = getOrgAdapter<O>(ctx.context, options);
 			if (session) {
-				const member = await adapter.findMemberByOrgId({
-					userId: session.user.id,
+				const member = await hasMember(
+					ctx.context,
+					options,
 					organizationId,
-				});
+					session.user.id,
+				);
 
 				if (!member || session.session?.activeTeamId === ctx.body.teamId) {
 					throw new APIError("FORBIDDEN", {
@@ -303,6 +307,7 @@ export const removeTeam = <O extends OrganizationOptions>(options: O) =>
 					});
 				}
 			}
+			const adapter = getOrgAdapter<O>(ctx.context, options);
 			const team = await adapter.findTeamById({
 				teamId: ctx.body.teamId,
 				organizationId,
@@ -449,12 +454,12 @@ export const updateTeam = <O extends OrganizationOptions>(options: O) => {
 					},
 				});
 			}
-			const adapter = getOrgAdapter<O>(ctx.context, options);
-			const member = await adapter.findMemberByOrgId({
-				userId: session.user.id,
+			const member = await hasMember(
+				ctx.context,
+				options,
 				organizationId,
-			});
-
+				session.user.id,
+			);
 			if (!member) {
 				throw new APIError("FORBIDDEN", {
 					message:
@@ -480,6 +485,8 @@ export const updateTeam = <O extends OrganizationOptions>(options: O) => {
 						ORGANIZATION_ERROR_CODES.YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_TEAM,
 				});
 			}
+
+			const adapter = getOrgAdapter<O>(ctx.context, options);
 
 			const team = await adapter.findTeamById({
 				teamId: ctx.body.teamId,
@@ -635,17 +642,19 @@ export const listOrganizationTeams = <O extends OrganizationOptions>(
 					message: ORGANIZATION_ERROR_CODES.NO_ACTIVE_ORGANIZATION,
 				});
 			}
-			const adapter = getOrgAdapter<O>(ctx.context, options);
-			const member = await adapter.findMemberByOrgId({
-				userId: session.user.id,
-				organizationId: organizationId || "",
-			});
+			const member = await hasMember(
+				ctx.context,
+				options,
+				organizationId,
+				session.user.id,
+			);
 			if (!member) {
 				throw new APIError("FORBIDDEN", {
 					message:
 						ORGANIZATION_ERROR_CODES.YOU_ARE_NOT_ALLOWED_TO_ACCESS_THIS_ORGANIZATION,
 				});
 			}
+			const adapter = getOrgAdapter<O>(ctx.context, options);
 			const teams = await adapter.listTeams(organizationId);
 			return ctx.json(teams);
 		},
@@ -944,7 +953,6 @@ export const addTeamMember = <O extends OrganizationOptions>(options: O) =>
 		},
 		async (ctx) => {
 			const session = ctx.context.session;
-			const adapter = getOrgAdapter(ctx.context, ctx.context.orgOptions);
 
 			if (!session.session.activeOrganizationId) {
 				throw new APIError("BAD_REQUEST", {
@@ -952,10 +960,12 @@ export const addTeamMember = <O extends OrganizationOptions>(options: O) =>
 				});
 			}
 
-			const currentMember = await adapter.findMemberByOrgId({
-				userId: session.user.id,
-				organizationId: session.session.activeOrganizationId,
-			});
+			const currentMember = await hasMember(
+				ctx.context,
+				options,
+				session.session.activeOrganizationId,
+				session.session.userId,
+			);
 
 			if (!currentMember) {
 				throw new APIError("BAD_REQUEST", {
@@ -983,10 +993,12 @@ export const addTeamMember = <O extends OrganizationOptions>(options: O) =>
 				});
 			}
 
-			const toBeAddedMember = await adapter.findMemberByOrgId({
-				userId: ctx.body.userId,
-				organizationId: session.session.activeOrganizationId,
-			});
+			const toBeAddedMember = await hasMember(
+				ctx.context,
+				options,
+				session.session.activeOrganizationId,
+				ctx.body.userId,
+			);
 
 			if (!toBeAddedMember) {
 				throw new APIError("BAD_REQUEST", {
@@ -994,6 +1006,8 @@ export const addTeamMember = <O extends OrganizationOptions>(options: O) =>
 						ORGANIZATION_ERROR_CODES.USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION,
 				});
 			}
+
+			const adapter = getOrgAdapter(ctx.context, ctx.context.orgOptions);
 
 			const team = await adapter.findTeamById({
 				teamId: ctx.body.teamId,
@@ -1111,10 +1125,12 @@ export const removeTeamMember = <O extends OrganizationOptions>(options: O) =>
 				});
 			}
 
-			const currentMember = await adapter.findMemberByOrgId({
-				userId: session.user.id,
-				organizationId: session.session.activeOrganizationId,
-			});
+			const currentMember = await hasMember(
+				ctx.context,
+				options,
+				session.session.activeOrganizationId,
+				session.session.userId,
+			);
 
 			if (!currentMember) {
 				throw new APIError("BAD_REQUEST", {
@@ -1142,10 +1158,12 @@ export const removeTeamMember = <O extends OrganizationOptions>(options: O) =>
 				});
 			}
 
-			const toBeAddedMember = await adapter.findMemberByOrgId({
-				userId: ctx.body.userId,
-				organizationId: session.session.activeOrganizationId,
-			});
+			const toBeAddedMember = await hasMember(
+				ctx.context,
+				options,
+				session.session.activeOrganizationId,
+				ctx.body.userId,
+			);
 
 			if (!toBeAddedMember) {
 				throw new APIError("BAD_REQUEST", {

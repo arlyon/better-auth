@@ -51,6 +51,7 @@ import type {
 	InferInvitation,
 	InferMember,
 	InferOrganization,
+	Member,
 	Team,
 	TeamMember,
 } from "./schema";
@@ -65,6 +66,7 @@ import { ORGANIZATION_ERROR_CODES } from "./error-codes";
 import { defaultRoles, defaultStatements } from "./access";
 import { hasPermission } from "./has-permission";
 import type { OrganizationOptions } from "./types";
+import { hasMember } from "./has-member";
 
 export function parseRoles(roles: string | string[]): string {
 	return Array.isArray(roles) ? roles.join(",") : roles;
@@ -978,17 +980,20 @@ export const organization = <O extends OrganizationOptions>(options?: O) => {
 							message: ORGANIZATION_ERROR_CODES.NO_ACTIVE_ORGANIZATION,
 						});
 					}
-					const adapter = getOrgAdapter<O>(ctx.context, options);
-					const member = await adapter.findMemberByOrgId({
-						userId: ctx.context.session.user.id,
-						organizationId: activeOrganizationId,
-					});
+
+					const member = await hasMember(
+						ctx.context,
+						options,
+						activeOrganizationId,
+						ctx.context.session.user.id,
+					);
 					if (!member) {
 						throw new APIError("UNAUTHORIZED", {
 							message:
 								ORGANIZATION_ERROR_CODES.USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION,
 						});
 					}
+
 					const result = await hasPermission(
 						{
 							role: member.role,

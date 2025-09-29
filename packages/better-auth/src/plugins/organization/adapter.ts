@@ -1,6 +1,6 @@
 import type { GenericEndpointContext, Session, User } from "../../types";
 import { getDate } from "../../utils/date";
-import type { OrganizationOptions } from "./types";
+import type { OrganizationOptions, MemberUser } from "./types";
 import type {
 	InferInvitation,
 	InferMember,
@@ -192,7 +192,7 @@ export const getOrgAdapter = <O extends OrganizationOptions>(
 		findMemberByOrgId: async (data: {
 			userId: string;
 			organizationId: string;
-		}) => {
+		}): Promise<(Member & { user: MemberUser }) | null> => {
 			const adapter = await getCurrentAdapter(baseAdapter);
 			const [member, user] = await Promise.all([
 				await adapter.findOne<Member>({

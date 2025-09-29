@@ -18,6 +18,7 @@ import {
 	type InferAdditionalFieldsFromPluginOptions,
 } from "../../../db";
 import { getDate } from "../../../utils/date";
+import { hasMember } from "../has-member";
 
 export const createInvitation = <O extends OrganizationOptions>(option: O) => {
 	const additionalFieldsSchema = toZodSchema({
@@ -175,11 +176,12 @@ export const createInvitation = <O extends OrganizationOptions>(option: O) => {
 					message: ORGANIZATION_ERROR_CODES.ORGANIZATION_NOT_FOUND,
 				});
 			}
-			const adapter = getOrgAdapter<O>(ctx.context, option as O);
-			const member = await adapter.findMemberByOrgId({
-				userId: session.user.id,
-				organizationId: organizationId,
-			});
+			const member = await hasMember(
+				ctx.context,
+				option,
+				organizationId,
+				session.user.id,
+			);
 			if (!member) {
 				throw new APIError("BAD_REQUEST", {
 					message: ORGANIZATION_ERROR_CODES.MEMBER_NOT_FOUND,
@@ -217,6 +219,8 @@ export const createInvitation = <O extends OrganizationOptions>(option: O) => {
 						ORGANIZATION_ERROR_CODES.YOU_ARE_NOT_ALLOWED_TO_INVITE_USER_WITH_THIS_ROLE,
 				});
 			}
+
+			const adapter = getOrgAdapter<O>(ctx.context, option);
 
 			const alreadyMember = await adapter.findMemberByEmail({
 				email: ctx.body.email,
@@ -797,10 +801,12 @@ export const cancelInvitation = <O extends OrganizationOptions>(options: O) =>
 					message: ORGANIZATION_ERROR_CODES.INVITATION_NOT_FOUND,
 				});
 			}
-			const member = await adapter.findMemberByOrgId({
-				userId: session.user.id,
-				organizationId: invitation.organizationId,
-			});
+			const member = await hasMember(
+				ctx.context,
+				options,
+				invitation.organizationId,
+				session.user.id,
+			);
 			if (!member) {
 				throw new APIError("BAD_REQUEST", {
 					message: ORGANIZATION_ERROR_CODES.MEMBER_NOT_FOUND,
@@ -967,10 +973,12 @@ export const getInvitation = <O extends OrganizationOptions>(options: O) =>
 					message: ORGANIZATION_ERROR_CODES.ORGANIZATION_NOT_FOUND,
 				});
 			}
-			const member = await adapter.findMemberByOrgId({
-				userId: invitation.inviterId,
-				organizationId: invitation.organizationId,
-			});
+			const member = await hasMember(
+				ctx.context,
+				options,
+				invitation.organizationId,
+				invitation.inviterId,
+			);
 			if (!member) {
 				throw new APIError("BAD_REQUEST", {
 					message:
@@ -1019,13 +1027,16 @@ export const listInvitations = <O extends OrganizationOptions>(options: O) =>
 				});
 			}
 			const adapter = getOrgAdapter<O>(ctx.context, options);
-			const isMember = await adapter.findMemberByOrgId({
-				userId: session.user.id,
-				organizationId: orgId,
-			});
-			if (!isMember) {
+			const member = await hasMember(
+				ctx.context,
+				options,
+				orgId,
+				session.user.id,
+			);
+			if (!member) {
 				throw new APIError("FORBIDDEN", {
-					message: "You are not a member of this organization",
+					message:
+						ORGANIZATION_ERROR_CODES.USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION,
 				});
 			}
 			const invitations = await adapter.listInvitations({

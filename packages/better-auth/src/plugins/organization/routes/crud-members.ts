@@ -13,6 +13,7 @@ import type { OrganizationOptions } from "../types";
 import { toZodSchema } from "../../../db/to-zod";
 import type { InferAdditionalFieldsFromPluginOptions } from "../../../db";
 import type { LiteralString } from "../../../types/helper";
+import { hasMember } from "../has-member";
 
 export const addMember = <O extends OrganizationOptions>(option: O) => {
 	const additionalFieldsSchema = toZodSchema({
@@ -278,17 +279,19 @@ export const removeMember = <O extends OrganizationOptions>(options: O) =>
 					},
 				});
 			}
-			const adapter = getOrgAdapter<O>(ctx.context, options);
-			const member = await adapter.findMemberByOrgId({
-				userId: session.user.id,
-				organizationId: organizationId,
-			});
+			const member = await hasMember(
+				ctx.context,
+				options,
+				organizationId,
+				session.user.id,
+			);
 			if (!member) {
 				throw new APIError("BAD_REQUEST", {
 					message: ORGANIZATION_ERROR_CODES.MEMBER_NOT_FOUND,
 				});
 			}
 			let toBeRemovedMember: Member | null = null;
+			const adapter = getOrgAdapter<O>(ctx.context, options);
 			if (ctx.body.memberIdOrEmail.includes("@")) {
 				toBeRemovedMember = await adapter.findMemberByEmail({
 					email: ctx.body.memberIdOrEmail,
@@ -501,10 +504,12 @@ export const updateMemberRole = <O extends OrganizationOptions>(option: O) =>
 					? [ctx.body.role as string]
 					: [];
 
-			const member = await adapter.findMemberByOrgId({
-				userId: session.user.id,
-				organizationId: organizationId,
-			});
+			const member = await hasMember(
+				ctx.context,
+				option,
+				organizationId,
+				session.user.id,
+			);
 
 			if (!member) {
 				throw new APIError("BAD_REQUEST", {
@@ -727,11 +732,12 @@ export const getActiveMember = <O extends OrganizationOptions>(options: O) =>
 					},
 				});
 			}
-			const adapter = getOrgAdapter<O>(ctx.context, options);
-			const member = await adapter.findMemberByOrgId({
-				userId: session.user.id,
-				organizationId: organizationId,
-			});
+			const member = await hasMember(
+				ctx.context,
+				options,
+				organizationId,
+				session.user.id,
+			);
 			if (!member) {
 				return ctx.json(null, {
 					status: 400,
@@ -760,11 +766,12 @@ export const leaveOrganization = <O extends OrganizationOptions>(options: O) =>
 		},
 		async (ctx) => {
 			const session = ctx.context.session;
-			const adapter = getOrgAdapter<O>(ctx.context, options);
-			const member = await adapter.findMemberByOrgId({
-				userId: session.user.id,
-				organizationId: ctx.body.organizationId,
-			});
+			const member = await hasMember(
+				ctx.context,
+				options,
+				ctx.body.organizationId,
+				session.user.id,
+			);
 			if (!member) {
 				throw new APIError("BAD_REQUEST", {
 					message: ORGANIZATION_ERROR_CODES.MEMBER_NOT_FOUND,
@@ -792,6 +799,9 @@ export const leaveOrganization = <O extends OrganizationOptions>(options: O) =>
 					});
 				}
 			}
+
+			const adapter = getOrgAdapter<O>(ctx.context, options);
+
 			await adapter.deleteMember(member.id);
 			if (session.session.activeOrganizationId === ctx.body.organizationId) {
 				await adapter.setActiveOrganization(session.session.token, null, ctx);
@@ -873,17 +883,19 @@ export const listMembers = <O extends OrganizationOptions>(options: O) =>
 					message: ORGANIZATION_ERROR_CODES.NO_ACTIVE_ORGANIZATION,
 				});
 			}
-			const adapter = getOrgAdapter<O>(ctx.context, options);
-			const isMember = await adapter.findMemberByOrgId({
-				userId: session.user.id,
+			const member = await hasMember(
+				ctx.context,
+				options,
 				organizationId,
-			});
-			if (!isMember) {
+				session.user.id,
+			);
+			if (!member) {
 				throw new APIError("FORBIDDEN", {
 					message:
 						ORGANIZATION_ERROR_CODES.YOU_ARE_NOT_A_MEMBER_OF_THIS_ORGANIZATION,
 				});
 			}
+			const adapter = getOrgAdapter<O>(ctx.context, options);
 			const { members, total } = await adapter.listMembers({
 				organizationId,
 				limit: ctx.query?.limit ? Number(ctx.query.limit) : undefined,
@@ -943,12 +955,12 @@ export const getActiveMemberRole = <O extends OrganizationOptions>(
 			}
 			const userId = ctx.query?.userId || session.user.id;
 
-			const adapter = getOrgAdapter<O>(ctx.context, options);
-
-			const member = await adapter.findMemberByOrgId({
-				userId,
+			const member = await hasMember(
+				ctx.context,
+				options,
 				organizationId,
-			});
+				userId,
+			);
 			if (!member) {
 				throw new APIError("FORBIDDEN", {
 					message:

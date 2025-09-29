@@ -20,6 +20,7 @@ import {
 	toZodSchema,
 	type InferAdditionalFieldsFromPluginOptions,
 } from "../../../db";
+import { hasMember } from "../has-member";
 
 export const createOrganization = <O extends OrganizationOptions>(
 	options?: O,
@@ -456,11 +457,12 @@ export const updateOrganization = <O extends OrganizationOptions>(
 					message: ORGANIZATION_ERROR_CODES.ORGANIZATION_NOT_FOUND,
 				});
 			}
-			const adapter = getOrgAdapter<O>(ctx.context, options);
-			const member = await adapter.findMemberByOrgId({
-				userId: session.user.id,
-				organizationId: organizationId,
-			});
+			const member = await hasMember(
+				ctx.context,
+				options,
+				organizationId,
+				session.user.id,
+			);
 			if (!member) {
 				throw new APIError("BAD_REQUEST", {
 					message:
@@ -498,6 +500,7 @@ export const updateOrganization = <O extends OrganizationOptions>(
 					};
 				}
 			}
+			const adapter = getOrgAdapter<O>(ctx.context, options);
 			const updatedOrg = await adapter.updateOrganization(
 				organizationId,
 				ctx.body.data,
@@ -575,11 +578,12 @@ export const deleteOrganization = <O extends OrganizationOptions>(
 					},
 				});
 			}
-			const adapter = getOrgAdapter<O>(ctx.context, options);
-			const member = await adapter.findMemberByOrgId({
-				userId: session.user.id,
-				organizationId: organizationId,
-			});
+			const member = await hasMember(
+				ctx.context,
+				options,
+				organizationId,
+				session.user.id,
+			);
 			if (!member) {
 				throw new APIError("BAD_REQUEST", {
 					message:
@@ -603,6 +607,7 @@ export const deleteOrganization = <O extends OrganizationOptions>(
 						ORGANIZATION_ERROR_CODES.YOU_ARE_NOT_ALLOWED_TO_DELETE_THIS_ORGANIZATION,
 				});
 			}
+			const adapter = getOrgAdapter<O>(ctx.context, options);
 			if (organizationId === session.session.activeOrganizationId) {
 				/**
 				 * If the organization is deleted, we set the active organization to null

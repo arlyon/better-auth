@@ -798,5 +798,29 @@ export interface OrganizationOptions {
 			user: User & Record<string, any>;
 			organization: Organization & Record<string, any>;
 		}) => Promise<void>;
+
+		/**
+		 * A hook to run after the organizations list is retrieved.
+		 * This can be set to dynamically change the list of
+		 * organizations the user can access.
+		 */
+		afterOrganizationsList?: (data: {
+			organizations: Organization[];
+			user: User & Record<string, any>;
+		}) => Promise<Organization[]>;
+
+		/**
+		 * A callback to hook into the membership / role check for a given user id.
+		 */
+		afterMemberCheck?: (data: {
+			user: User & Record<string, any>;
+			organization: Organization & Record<string, any>;
+			member: (Member & Record<string, any>) | null;
+		}) => Promise<(Member & { user: MemberUser }) | null>;
 	};
 }
+
+/**
+ * The user details that are included by default in member details
+ */
+export type MemberUser = Pick<User, "id" | "name" | "email" | "image">;
