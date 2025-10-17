@@ -720,11 +720,15 @@ export const getFullOrganization = <O extends OrganizationOptions>(
 					message: ORGANIZATION_ERROR_CODES.ORGANIZATION_NOT_FOUND,
 				});
 			}
-			const isMember = await adapter.checkMembership({
-				userId: session.user.id,
-				organizationId: organization.id,
-			});
-			if (!isMember) {
+
+			const member = await hasMember(
+				ctx.context,
+				options,
+				organization.id,
+				session.user.id,
+			);
+
+			if (!member) {
 				await adapter.setActiveOrganization(session.session.token, null, ctx);
 				throw new APIError("FORBIDDEN", {
 					message:
@@ -838,10 +842,12 @@ export const setActiveOrganization = <O extends OrganizationOptions>(
 				});
 			}
 
-			const isMember = await adapter.checkMembership({
-				userId: session.user.id,
+			const isMember = await hasMember(
+				ctx.context,
+				options,
 				organizationId,
-			});
+				session.user.id,
+			);
 			if (!isMember) {
 				await adapter.setActiveOrganization(session.session.token, null, ctx);
 				throw new APIError("FORBIDDEN", {
